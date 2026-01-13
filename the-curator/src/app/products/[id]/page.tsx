@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -8,6 +8,7 @@ import { ArrowLeft, ExternalLink, Check, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MOCK_PRODUCTS, formatSavings, calculateSavings } from "@/lib/mock-data";
 import { Button } from "@/components/ui/Button";
+import { ProductCard } from "@/components/features/ProductCard";
 
 interface ProductPageProps {
     params: Promise<{ id: string }>;
@@ -78,14 +79,32 @@ export default function ProductPage({ params }: ProductPageProps) {
         );
     }
 
-    const savings = product.original.price - product.dupe.price;
     const savingsPercent = calculateSavings(product.original.price, product.dupe.price);
 
     // Mock AI-generated description based on category
     const whyItWorks = getWhyItWorks(product.category, product.title);
 
+    // Get related products from same category (excluding current product)
+    const relatedProducts = useMemo(() => {
+        const sameCategory = MOCK_PRODUCTS.filter(
+            (p) => p.category === product.category && p.id !== product.id
+        );
+
+        // If we have enough from same category, use those
+        if (sameCategory.length >= 3) {
+            return sameCategory.slice(0, 3);
+        }
+
+        // Otherwise, fill with random products from other categories
+        const others = MOCK_PRODUCTS.filter(
+            (p) => p.id !== product.id && !sameCategory.includes(p)
+        );
+        const combined = [...sameCategory, ...others];
+        return combined.slice(0, 3);
+    }, [product]);
+
     return (
-        <div className="min-h-screen pt-20 pb-16">
+        <div className="min-h-screen pt-20 pb-32 lg:pb-16">
             {/* Back Button */}
             <motion.div
                 initial={{ opacity: 0, x: -20 }}
@@ -341,6 +360,57 @@ export default function ProductPage({ params }: ProductPageProps) {
                         </motion.div>
                     </motion.div>
                 </div>
+            </div>
+
+            {/* Similar Vibes Section */}
+            {relatedProducts.length > 0 && (
+                <motion.section
+                    initial={{ opacity: 0, y: 40 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.4 }}
+                    className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-24"
+                >
+                    <h3 className="text-2xl font-light text-neutral-900 mb-8">
+                        More from this vibe.
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        {relatedProducts.map((relatedProduct) => (
+                            <ProductCard
+                                key={relatedProduct.id}
+                                product={relatedProduct}
+                            />
+                        ))}
+                    </div>
+                </motion.section>
+            )}
+
+            {/* Mobile Sticky CTA */}
+            <div
+                className={cn(
+                    "fixed bottom-0 left-0 right-0 z-50",
+                    "lg:hidden",
+                    "p-4 bg-white/95 backdrop-blur-lg",
+                    "border-t border-neutral-200/50",
+                    "shadow-[0_-8px_30px_rgb(0,0,0,0.1)]"
+                )}
+            >
+                <a
+                    href={product.dupe.affiliateUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block"
+                >
+                    <Button
+                        size="lg"
+                        className={cn(
+                            "w-full h-12 text-base gap-2",
+                            "bg-neutral-900 hover:bg-neutral-800"
+                        )}
+                    >
+                        Buy at {product.dupe.brand} — {formatCurrency(product.dupe.price)}
+                        <ExternalLink className="w-4 h-4" strokeWidth={1.5} />
+                    </Button>
+                </a>
             </div>
         </div>
     );
